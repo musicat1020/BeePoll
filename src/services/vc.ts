@@ -1,7 +1,8 @@
 import axios from "axios";
 import { getAccessToken } from "./did";
+import { UserContext } from "@auth0/nextjs-auth0/client";
 
-export const issueVc = async (did: any, user: any, webAuthnId: any) => {
+export const issueVc = async (did: any, githubUser: any, webAuthnId: any) => {
     const url = 'https://api.entity.hypersign.id/api/v1/credential/issue';
     const token = await getAccessToken();
     const headers = {
@@ -17,9 +18,9 @@ export const issueVc = async (did: any, user: any, webAuthnId: any) => {
         issuerDid: 'did:hid:testnet:z996acTcJsUzLZb2HwPnoX9YrDmj5u41vGpWYUkTSEZMg',
         expirationDate: '2027-12-10T18:30:00.000Z',
         fields: {
-            githubName: user.name,
-            githubNickname: user.nickname,
-            githubSub: user.sub,
+            githubName: githubUser.name,
+            githubNickname: githubUser.nickname,
+            githubSub: githubUser.sub,
             webAuthnId: webAuthnId,
         },
         namespace: 'testnet',

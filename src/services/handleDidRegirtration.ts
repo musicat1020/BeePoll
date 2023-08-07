@@ -11,6 +11,7 @@ export const handleDidRegistration = async (
         const res = await resolveDid(did, token);
 
         if (res?.didDocument?.id !== undefined) {
+            console.log("DID already registered", res?.didDocument?.id)
             return res?.didDocument?.id;
         }
         else {

@@ -1,28 +1,32 @@
 import PersonalDIDCard from "./card/personalDIDCard";
 import Github from "./card/githubCard";
-import { issueVc } from "../services/vc";
 import { handleDidRegistration } from "../services/handleDidRegirtration";
-import { addVcToDid } from "../services/addVcToDid";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import VerifyVcButton from "./button/verifyVcButton";
-import { onCreate } from "../services/webAuthnUtils";
 import { getAccessToken, resolveDid } from "../services/did";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Link from "next/link";
-
+import { useRouter } from "next/router";
+import { handleGetCredential } from "../services/handleGetCredential";
+import { useTheme } from "next-themes";
 
 export default function Identity(props: any) {
-  const user = useUser();
+  const githubUser = useUser();
+  const router = useRouter();
+  const { theme } = useTheme();
   const { address, isConnected } = useAccount();
   const [did, setDid] = useState("");
+  const [didDocument, setDidDocument] = useState(null)
 
   useEffect(() => {
     async function getDid() {
       const did = await handleDidRegistration(address);
+      console.log("did in identity", did)
+      const didDocument = await resolveDid(did, await getAccessToken()).then((res) => res?.didDocument);
       setDid(did);
+      setDidDocument(didDocument);
     }
 
     if (isConnected) {
@@ -30,30 +34,32 @@ export default function Identity(props: any) {
     }
   }, [address, isConnected, did]);
 
+  const handleButtonClick = () => {
+
+    console.log("github user", JSON.stringify(githubUser, null, 2))
+    console.log("diddocument", JSON.stringify(didDocument, null, 2))
+
+    const hasService = didDocument && didDocument['service'][0] ? true : false;
+    if (hasService) {
+      toast("Credential Already Exists", { hideProgressBar: true, theme: theme === "dark" ? "dark" : "light", autoClose: 1000 });
+    }
+    else {
+      router.push('/api/auth/login');
+    }
+  };
+
   useEffect(() => {
-    async function handleGetCredential() {
-      const didDocument = await resolveDid(did, await getAccessToken());
-      if (didDocument?.didDocument?.service[0]?.serviceEndpoint === undefined) {
-        console.log("create vc")
-        const webAuthnId = await onCreate(did);
-        console.log("webAuthnId", webAuthnId)
-        const vcId = await issueVc(did, user.user, webAuthnId);
-        const userSub = user.user?.sub as string;
-        const data = await addVcToDid(address, vcId, userSub, webAuthnId)
-        console.log(data)
-      }
-      else {
-        console.log("vc already created")
-        toast("Verifiable Credentials already created", { hideProgressBar: true, theme: 'dark', autoClose: 1000 });
-      }
+    console.log("github user", githubUser)
+    console.log("address", address)
+    console.log("did", did)
+    const hasService = didDocument && didDocument['service'][0] ? true : false;
+    if (address != undefined && did != "" && githubUser != undefined && !hasService) {
+      console.log("github user ", githubUser.user?.name)
+      handleGetCredential(did, address, githubUser);
     }
 
-    console.log("github user", JSON.stringify(user, null, 2))
-    if (did != "" && user.user != undefined) {
-      handleGetCredential();
-    }
+  }, [githubUser, address, did, didDocument]);
 
-  }, [address, did, user])
 
 
   return (
@@ -64,19 +70,16 @@ export default function Identity(props: any) {
         </p>
         <div className="flex space-x-4 ml-auto">
           <VerifyVcButton />
-          <Link
-            href="/api/auth/login"
-            className="btn btn-outline px-2 h-1/3 btn-warning"
-          >
-            Get Credenital
-          </Link>
-          <a
-            href="api/auth/logout"
-            className="btn btn-outline px-2 h-1/3 btn-warning"
-          >
-            Logout
-          </a>
-          <ToastContainer limit={1} />
+          <div className="tooltip" data-tip={did === "" ? "Connect Wallet Before Getting Credential" : null}>
+            <button
+              className={`btn btn-outline px-2 h-1/3 btn-warning ${did ? '' : 'brightness-50'}`}
+              disabled={!did}
+              onClick={handleButtonClick}
+            >
+              Get Credential
+            </button>
+          </div>
+          <ToastContainer />
         </div>
       </div>
       <div className="divider ml-5 mr-auto w-1/2 my-[0px]"></div>
@@ -95,7 +98,6 @@ export default function Identity(props: any) {
           </div>
           <div className="flex items-center">
             <Github handleCopyClick={props.handleCopyClick} did={did} />
-            {/* <DiscordCard handleCopyClick={props.handleCopyClick} /> */}
           </div>
         </div>
       </div>
