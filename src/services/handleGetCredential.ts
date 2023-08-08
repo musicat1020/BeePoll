@@ -11,7 +11,8 @@ export async function handleGetCredential(did: string, address: `0x${string}`, g
         console.log("webAuthnId", webAuthnId)
         const vcId = await issueVc(did, githubUser.user, webAuthnId);
         const userSub = githubUser.user?.sub as string;
-        const data = await addVcToDid(address, vcId, userSub, webAuthnId)
+        console.log("github user sub", userSub)
+        const data = await addVcToDid(address, vcId, userSub)
         console.log(data)
     }
 }

@@ -5,12 +5,13 @@ import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import VerifyVcButton from "./button/verifyVcButton";
-import { getAccessToken, resolveDid } from "../services/did";
+import { checkDidForMatchingGithubSub, getAccessToken, resolveDid } from "../services/did";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRouter } from "next/router";
 import { handleGetCredential } from "../services/handleGetCredential";
 import { useTheme } from "next-themes";
+import Link from "next/link";
 
 export default function Identity(props: any) {
   const githubUser = useUser();
@@ -23,7 +24,6 @@ export default function Identity(props: any) {
   useEffect(() => {
     async function getDid() {
       const did = await handleDidRegistration(address);
-      console.log("did in identity", did)
       const didDocument = await resolveDid(did, await getAccessToken()).then((res) => res?.didDocument);
       setDid(did);
       setDidDocument(didDocument);
@@ -34,33 +34,35 @@ export default function Identity(props: any) {
     }
   }, [address, isConnected, did]);
 
-  const handleButtonClick = () => {
-
-    console.log("github user", JSON.stringify(githubUser, null, 2))
-    console.log("diddocument", JSON.stringify(didDocument, null, 2))
-
-    const hasService = didDocument && didDocument['service'][0] ? true : false;
+  const handleButtonClick = async () => {
+    const hasService = didDocument && didDocument['service'][0];
     if (hasService) {
-      toast("Credential Already Exists", { hideProgressBar: true, theme: theme === "dark" ? "dark" : "light", autoClose: 1000 });
-    }
-    else {
+      toast("Credential Already Exists", { hideProgressBar: true, theme: theme === "dark" ? "dark" : "light", autoClose: 1000, toastId: "fail1" });
+    } else {
       router.push('/api/auth/login');
     }
   };
 
   useEffect(() => {
-    console.log("github user", githubUser)
-    console.log("address", address)
-    console.log("did", did)
+    const githubSub = githubUser.user?.sub
+    const isValid = (address != undefined && did != "" && githubSub != undefined)
     const hasService = didDocument && didDocument['service'][0] ? true : false;
-    if (address != undefined && did != "" && githubUser != undefined && !hasService) {
-      console.log("github user ", githubUser.user?.name)
-      handleGetCredential(did, address, githubUser);
+
+    if (isValid) {
+      checkDidForMatchingGithubSub(did, githubSub).then((checkResult) => {
+        if (checkResult) {
+          toast("GitHub Account Already Associated with Another DID", { hideProgressBar: true, theme: theme === "dark" ? "dark" : "light", autoClose: 1000, toastId: "fail1" });
+        }
+      });
+
+      if (!hasService) {
+        console.log("github user ", githubUser.user?.name)
+        handleGetCredential(did, address, githubUser);
+      }
     }
 
-  }, [githubUser, address, did, didDocument]);
-
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleButtonClick, theme]);
 
   return (
     <div className="dark:bg-slate-800">
@@ -74,10 +76,13 @@ export default function Identity(props: any) {
             <button
               className={`btn btn-outline px-2 h-1/3 btn-warning ${did ? '' : 'brightness-50'}`}
               disabled={!did}
-              onClick={handleButtonClick}
+              onClick={() => {
+                handleButtonClick()
+              }}
             >
               Get Credential
             </button>
+            <Link href="/api/auth/logout">louout </Link>
           </div>
           <ToastContainer />
         </div>
